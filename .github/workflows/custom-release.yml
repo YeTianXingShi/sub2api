@@ -76,12 +76,8 @@ jobs:
       - name: Install dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile
-      - name: Type check
-        working-directory: frontend
-        run: pnpm run typecheck
-      - name: Tests
-        working-directory: frontend
-        run: pnpm run test:run
+      - name: Lint, type check, and critical tests
+        run: make test-frontend
 
   image:
     needs: [backend-tests, backend-lint, frontend-tests]
