@@ -148,6 +148,22 @@ export default {
     }
   },
 
+  usageRanking: {
+    title: 'Spending Ranking',
+    description: 'See the users with the highest actual spend',
+    timeRange: 'Date range',
+    listTitle: 'Ranking',
+    limitHint: 'Showing up to {limit} users',
+    emptyTitle: 'No spending yet',
+    emptyDescription: 'There is no billed usage in this date range.',
+    loadError: 'Failed to load the spending ranking',
+    tokens: 'Tokens',
+    totalTokens: 'Total tokens',
+    requests: 'Requests',
+    cost: 'Actual spend ({unit})',
+    reasoningCost: 'Actual spend ({unit})'
+  },
+
   // Navigation
   nav: {
     dashboard: 'Dashboard',
@@ -155,6 +171,7 @@ export default {
     apiKeys: 'API Keys',
     batchImage: 'Batch Images',
     usage: 'Usage',
+    usageRanking: 'Spending Ranking',
     redeem: 'Redeem',
     affiliate: 'Affiliate Rebates',
     affiliateManagement: 'Affiliate Rebates',

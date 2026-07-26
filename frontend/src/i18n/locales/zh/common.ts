@@ -148,6 +148,22 @@ export default {
     }
   },
 
+  usageRanking: {
+    title: '消费排行榜',
+    description: '查看按实际消费金额排序的用户排行',
+    timeRange: '日期范围',
+    listTitle: '排行榜',
+    limitHint: '最多展示 {limit} 位用户',
+    emptyTitle: '暂无消费记录',
+    emptyDescription: '所选日期范围内没有已扣费的用量记录。',
+    loadError: '加载消费排行榜失败',
+    tokens: 'Token',
+    totalTokens: 'Token 总量',
+    requests: '请求数',
+    cost: '实际消费（{unit}）',
+    reasoningCost: '实际消费（{unit}）'
+  },
+
   // Navigation
   nav: {
     dashboard: '仪表盘',
@@ -155,6 +171,7 @@ export default {
     apiKeys: 'API 密钥',
     batchImage: '批量生图',
     usage: '使用记录',
+    usageRanking: '消费排行榜',
     redeem: '兑换',
     affiliate: '邀请返利',
     affiliateManagement: '邀请返利',

@@ -613,7 +613,7 @@
                                 rollingBack
                                   ? t('version.rollingBack')
                                   : t('version.rollbackConfirm', {
-                                      version: 'v' + selectedRollbackVersion
+                                      version: releaseTag(selectedRollbackVersion)
                                     })
                               }}</span>
                             </button>
@@ -651,9 +651,9 @@ import {
 import { useClipboard } from '@/composables/useClipboard'
 import Icon from '@/components/icons/Icon.vue'
 
-const GITHUB_REPO = 'Wei-Shaw/sub2api'
-// Docker Hub image published by CI (tags carry no "v" prefix, e.g. weishaw/sub2api:0.1.146)
-const DOCKER_IMAGE = 'weishaw/sub2api'
+const GITHUB_REPO = 'YeTianXingShi/sub2api'
+// Custom releases are published to this repository's GHCR namespace.
+const DOCKER_IMAGE = 'ghcr.io/yetianxingshi/sub2api'
 
 const { t } = useI18n()
 
@@ -707,9 +707,13 @@ const manualTabs = computed(() => [
   { key: 'docker' as const, label: t('version.deployDocker') }
 ])
 
+function releaseTag(version: string): string {
+  return version.startsWith('custom.') ? `v-${version}` : `v${version}`
+}
+
 const scriptRollbackCommand = computed(() => {
   if (!selectedRollbackVersion.value) return ''
-  const tag = `v${selectedRollbackVersion.value}`
+  const tag = releaseTag(selectedRollbackVersion.value)
   return `curl -sSL https://raw.githubusercontent.com/${GITHUB_REPO}/${tag}/deploy/install.sh | sudo bash -s -- rollback ${tag}`
 })
 
@@ -717,7 +721,7 @@ const dockerRollbackCommand = computed(() => {
   if (!selectedRollbackVersion.value) return ''
   return [
     `# ${t('version.dockerEditCompose')}`,
-    `image: ${DOCKER_IMAGE}:${selectedRollbackVersion.value}`,
+    `image: ${DOCKER_IMAGE}:${releaseTag(selectedRollbackVersion.value)}`,
     '',
     `# ${t('version.dockerRecreate')}`,
     'docker compose up -d'

@@ -24,6 +24,11 @@ func RegisterAuthRoutes(
 	// 创建速率限制器
 	rateLimiter := middleware.NewRateLimiter(redisClient)
 
+	// The marketplace is intentionally public and contains only aggregate
+	// group/model/pricing data.
+	marketplace := v1.Group("/marketplace")
+	marketplace.GET("/models", h.ModelMarketplace.ListPublic)
+
 	// 公开接口
 	auth := v1.Group("/auth")
 	auth.Use(servermiddleware.BackendModeAuthGuard(settingService))

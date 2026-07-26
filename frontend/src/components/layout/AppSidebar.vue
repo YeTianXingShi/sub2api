@@ -277,6 +277,21 @@ const DashboardIcon = {
     )
 }
 
+const ModelMarketplaceIcon = {
+  render: () =>
+    h(
+      'svg',
+      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' },
+      [
+        h('path', {
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          d: 'M4.5 6.75h15m-15 5.25h15m-15 5.25h15M6.75 4.5v15m5.25-15v15m5.25-15v15'
+        })
+      ]
+    )
+}
+
 const KeyIcon = {
   render: () =>
     h(
@@ -702,7 +717,9 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   items.push(
     { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
     { path: '/batch-image', label: t('nav.batchImage'), icon: BatchImageIcon, hideInSimpleMode: true, featureFlag: flagBatchImageAccess },
-    { path: '/usage', label: t('nav.usage'), icon: ChartIcon, hideInSimpleMode: true },
+	{ path: '/usage', label: t('nav.usage'), icon: ChartIcon, hideInSimpleMode: true },
+    { path: '/usage-ranking', label: t('nav.usageRanking'), icon: ChartIcon, hideInSimpleMode: true },
+	{ path: '/models', label: t('marketplace.title'), icon: ModelMarketplaceIcon },
     { path: '/available-channels', label: t('nav.availableChannels'), icon: ChannelIcon, hideInSimpleMode: true, featureFlag: flagAvailableChannels },
     { path: '/monitor', label: t('nav.channelStatus'), icon: SignalIcon, featureFlag: flagChannelMonitor },
     { path: '/subscriptions', label: t('nav.mySubscriptions'), icon: CreditCardIcon, hideInSimpleMode: true },

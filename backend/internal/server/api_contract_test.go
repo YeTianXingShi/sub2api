@@ -483,6 +483,17 @@ func TestAPIContracts(t *testing.T) {
 			}`,
 		},
 		{
+			name:       "GET /api/v1/marketplace/models is public",
+			method:     http.MethodGet,
+			path:       "/api/v1/marketplace/models",
+			wantStatus: http.StatusOK,
+			wantJSON: `{
+				"code": 0,
+				"message": "success",
+				"data": []
+			}`,
+		},
+		{
 			name: "GET /api/v1/usage/stats",
 			setup: func(t *testing.T, deps *contractDeps) {
 				t.Helper()
@@ -534,6 +545,25 @@ func TestAPIContracts(t *testing.T) {
 					"total_cost": 0.75,
 					"total_actual_cost": 0.75,
 					"average_duration_ms": 200
+				}
+			}`,
+		},
+		{
+			name:       "GET /api/v1/usage/ranking",
+			method:     http.MethodGet,
+			path:       "/api/v1/usage/ranking?start_date=2025-01-01&end_date=2025-01-02&timezone=UTC",
+			wantStatus: http.StatusOK,
+			wantJSON: `{
+				"code": 0,
+				"message": "success",
+				"data": {
+					"ranking": [],
+					"total_requests": 0,
+					"total_tokens": 0,
+					"total_actual_cost": 0,
+					"start_date": "2025-01-01",
+					"end_date": "2025-01-02",
+					"limit": 20
 				}
 			}`,
 		},
@@ -864,6 +894,7 @@ func TestAPIContracts(t *testing.T) {
 					"purchase_subscription_url": "",
 					"table_default_page_size": 20,
 						"table_page_size_options": [10, 20, 50, 100],
+						"usage_ranking_limit": 20,
 					"min_claude_code_version": "",
 					"max_claude_code_version": "",
 					"min_codex_version": "",
@@ -1116,6 +1147,7 @@ func TestAPIContracts(t *testing.T) {
 					"purchase_subscription_url": "",
 					"table_default_page_size": 20,
 					"table_page_size_options": [10, 20, 50],
+					"usage_ranking_limit": 20,
 					"default_platform_quotas": {"anthropic":{"daily":null,"weekly":null,"monthly":null},"antigravity":{"daily":null,"weekly":null,"monthly":null},"gemini":{"daily":null,"weekly":null,"monthly":null},"grok":{"daily":null,"weekly":null,"monthly":null},"openai":{"daily":null,"weekly":null,"monthly":null}},
 					"auth_source_default_email_platform_quotas": null,
 					"auth_source_default_github_platform_quotas": null,
@@ -1403,6 +1435,7 @@ func newContractDeps(t *testing.T) *contractDeps {
 	authHandler := handler.NewAuthHandler(cfg, nil, userService, settingService, nil, redeemService, nil, nil)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
 	usageHandler := handler.NewUsageHandler(usageService, apiKeyService, nil, nil)
+	marketplaceHandler := handler.NewModelMarketplaceHandler(service.NewModelMarketplaceService(groupRepo, nil, nil, nil))
 	adminSettingHandler := adminhandler.NewSettingHandler(settingService, nil, nil, nil, nil, nil, nil)
 	adminAccountHandler := adminhandler.NewAccountHandler(adminService, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
@@ -1426,6 +1459,7 @@ func newContractDeps(t *testing.T) *contractDeps {
 	r := gin.New()
 
 	v1 := r.Group("/api/v1")
+	v1.GET("/marketplace/models", marketplaceHandler.ListPublic)
 
 	v1Auth := v1.Group("")
 	v1Auth.Use(jwtAuth)
@@ -1441,6 +1475,7 @@ func newContractDeps(t *testing.T) *contractDeps {
 	v1Usage.Use(jwtAuth)
 	v1Usage.GET("/usage", usageHandler.List)
 	v1Usage.GET("/usage/stats", usageHandler.Stats)
+	v1Usage.GET("/usage/ranking", usageHandler.Ranking)
 
 	v1Subs := v1.Group("")
 	v1Subs.Use(jwtAuth)
@@ -2538,6 +2573,10 @@ func (r *stubUsageLogRepo) GetUserUsageTrend(ctx context.Context, startTime, end
 
 func (r *stubUsageLogRepo) GetUserSpendingRanking(ctx context.Context, startTime, endTime time.Time, limit int) (*usagestats.UserSpendingRankingResponse, error) {
 	return nil, errors.New("not implemented")
+}
+
+func (r *stubUsageLogRepo) GetUsageRanking(ctx context.Context, startTime, endTime time.Time, limit int) (*usagestats.UsageRankingResponse, error) {
+	return &usagestats.UsageRankingResponse{Ranking: []usagestats.UsageRankingItem{}}, nil
 }
 
 func (r *stubUsageLogRepo) GetUserStatsAggregated(ctx context.Context, userID int64, startTime, endTime time.Time) (*usagestats.UsageStats, error) {

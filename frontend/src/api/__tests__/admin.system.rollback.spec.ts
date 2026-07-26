@@ -23,9 +23,9 @@ describe('admin system rollback API', () => {
   it('getRollbackVersions fetches the rollback version list', async () => {
     const versions: RollbackVersionInfo[] = [
       {
-        version: '0.1.146',
+        version: 'custom.20260707.1',
         published_at: '2026-07-07T00:00:00Z',
-        html_url: 'https://github.com/Wei-Shaw/sub2api/releases/tag/v0.1.146'
+        html_url: 'https://github.com/YeTianXingShi/sub2api/releases/tag/v-custom.20260707.1'
       }
     ]
     get.mockResolvedValue({ data: { versions } })
@@ -39,9 +39,9 @@ describe('admin system rollback API', () => {
   it('rollback posts the target version in the request body', async () => {
     post.mockResolvedValue({ data: { message: 'ok', need_restart: true } })
 
-    const result = await rollback('0.1.146')
+    const result = await rollback('custom.20260707.1')
 
-    expect(post).toHaveBeenCalledWith('/admin/system/rollback', { version: '0.1.146' })
+    expect(post).toHaveBeenCalledWith('/admin/system/rollback', { version: 'custom.20260707.1' }, { timeout: 900000 })
     expect(result.need_restart).toBe(true)
   })
 
@@ -50,6 +50,6 @@ describe('admin system rollback API', () => {
 
     await rollback()
 
-    expect(post).toHaveBeenCalledWith('/admin/system/rollback', undefined)
+    expect(post).toHaveBeenCalledWith('/admin/system/rollback', undefined, { timeout: 900000 })
   })
 })

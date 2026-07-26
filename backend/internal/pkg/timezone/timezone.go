@@ -140,6 +140,21 @@ func ParseInUserLocation(layout, value, userTZ string) (time.Time, error) {
 	return time.ParseInLocation(layout, value, loc)
 }
 
+// ParseDateTimeInUserLocation accepts a calendar date or local ISO-like date
+// time. The boolean reports whether the input was date-only.
+func ParseDateTimeInUserLocation(value, userTZ string) (time.Time, bool, error) {
+	if parsed, err := ParseInUserLocation("2006-01-02", value, userTZ); err == nil {
+		return parsed, true, nil
+	}
+	if parsed, err := ParseInUserLocation("2006-01-02T15:04:05", value, userTZ); err == nil {
+		return parsed, false, nil
+	}
+	if parsed, err := time.Parse(time.RFC3339, value); err == nil {
+		return parsed, false, nil
+	}
+	return time.Time{}, false, fmt.Errorf("invalid date or date-time %q", value)
+}
+
 // NowInUserLocation returns the current time in the user's timezone.
 // If userTZ is empty or invalid, falls back to the configured server timezone.
 func NowInUserLocation(userTZ string) time.Time {

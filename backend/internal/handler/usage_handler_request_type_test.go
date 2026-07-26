@@ -131,6 +131,57 @@ func TestUserUsageListInvalidStream(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
+func TestParseUsageRankingTimeRangeDefaultsToToday(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodGet, "/usage/ranking?timezone=Asia/Shanghai", nil)
+	now := time.Date(2026, 5, 6, 15, 30, 0, 0, time.FixedZone("CST", 8*3600))
+
+	start, end, err := parseUsageRankingTimeRange(c, now, "Asia/Shanghai")
+
+	require.NoError(t, err)
+	require.Equal(t, "2026-05-06 00:00:00 +0800 CST", start.String())
+	require.Equal(t, "2026-05-07 00:00:00 +0800 CST", end.String())
+}
+
+func TestUsageRankingRejectsUnauthenticatedRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	usageSvc := service.NewUsageService(&userUsageRepoCapture{}, nil, nil, nil)
+	handler := NewUsageHandler(usageSvc, nil, nil, nil)
+	router := gin.New()
+	router.GET("/usage/ranking", handler.Ranking)
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/usage/ranking", nil))
+
+	require.Equal(t, http.StatusUnauthorized, recorder.Code)
+}
+
+func TestParseUsageRankingTimeRangeDateOnlyEndIsInclusive(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodGet, "/usage/ranking?start_date=2026-05-01&end_date=2026-05-03&timezone=Asia/Shanghai", nil)
+	now := time.Date(2026, 5, 6, 15, 30, 0, 0, time.UTC)
+
+	start, end, err := parseUsageRankingTimeRange(c, now, "Asia/Shanghai")
+
+	require.NoError(t, err)
+	require.Equal(t, "2026-05-01 00:00:00 +0800 CST", start.String())
+	require.Equal(t, "2026-05-04 00:00:00 +0800 CST", end.String())
+	require.Equal(t, "2026-05-03", usageRankingDisplayEndDate(end))
+}
+
+func TestParseUsageRankingTimeRangeRejectsInvalidRange(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodGet, "/usage/ranking?start_date=2026-05-03&end_date=2026-05-01&timezone=Asia/Shanghai", nil)
+	now := time.Date(2026, 5, 6, 15, 30, 0, 0, time.UTC)
+
+	_, _, err := parseUsageRankingTimeRange(c, now, "Asia/Shanghai")
+
+	require.ErrorContains(t, err, "end_date must be later than start_date")
+}
+
 func TestUserUsageListAdvancedFilters(t *testing.T) {
 	repo := &userUsageRepoCapture{}
 	router := newUserUsageRequestTypeTestRouter(repo)

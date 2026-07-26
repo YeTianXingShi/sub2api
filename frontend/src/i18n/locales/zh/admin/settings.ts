@@ -474,6 +474,9 @@ export default {
         tablePageSizeOptionsHint: '使用英文逗号分隔，取值范围 5-1000，保存时会自动去重并排序',
         tableDefaultPageSizeRangeError: '默认每页条数必须在 {min}-{max} 之间',
         tablePageSizeOptionsFormatError: '可选每页条数格式无效，请输入 {min}-{max} 之间的整数并用英文逗号分隔',
+        usageRankingLimit: '消费排行榜人数',
+        usageRankingLimitHint: '消费排行榜展示人数，范围 1-100',
+        usageRankingLimitRangeError: '排行榜人数必须在 {min}-{max} 之间',
         customEndpoints: {
           title: '自定义端点',
           description: '添加额外的 API 端点地址，用户可在「API Keys」页面快速复制',

@@ -76,6 +76,29 @@ func (s *GroupCapacityService) GetAllGroupCapacity(ctx context.Context) ([]Group
 	return s.getGroupCapacitiesSequential(ctx, groupIDs), nil
 }
 
+// GetGroupCapacityByIDs returns only the requested public groups. Runtime load
+// failures are handled by the marketplace as an optional-data degradation.
+func (s *GroupCapacityService) GetGroupCapacityByIDs(ctx context.Context, groupIDs []int64) (map[int64]GroupCapacitySummary, error) {
+	if len(groupIDs) == 0 {
+		return map[int64]GroupCapacitySummary{}, nil
+	}
+	var summaries []GroupCapacitySummary
+	var err error
+	if lister, ok := s.accountRepo.(groupCapacityAccountLister); ok {
+		summaries, err = s.getGroupCapacitiesBatch(ctx, groupIDs, lister)
+	} else {
+		summaries = s.getGroupCapacitiesSequential(ctx, groupIDs)
+	}
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[int64]GroupCapacitySummary, len(summaries))
+	for _, summary := range summaries {
+		out[summary.GroupID] = summary
+	}
+	return out, nil
+}
+
 func (s *GroupCapacityService) listActiveGroupIDs(ctx context.Context) ([]int64, error) {
 	if lister, ok := s.groupRepo.(groupCapacityActiveGroupIDLister); ok {
 		return lister.ListActiveIDs(ctx)

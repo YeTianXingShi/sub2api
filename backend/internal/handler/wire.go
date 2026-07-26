@@ -184,6 +184,7 @@ func ProvideHandlers(
 	availableChannelHandler *AvailableChannelHandler,
 	asyncImageHandler *AsyncImageHandler,
 	batchImageHandler *BatchImageHandler,
+	modelMarketplaceHandler *ModelMarketplaceHandler,
 	_ *service.IdempotencyCoordinator,
 	_ *service.IdempotencyCleanupService,
 ) *Handlers {
@@ -206,6 +207,7 @@ func ProvideHandlers(
 		AvailableChannel: availableChannelHandler,
 		AsyncImage:       asyncImageHandler,
 		BatchImage:       batchImageHandler,
+		ModelMarketplace: modelMarketplaceHandler,
 	}
 }
 
@@ -229,6 +231,7 @@ var ProviderSet = wire.NewSet(
 	NewAvailableChannelHandler,
 	NewAsyncImageHandler,
 	ProvideBatchImageHandler,
+	NewModelMarketplaceHandler,
 
 	// Admin handlers
 	admin.NewDashboardHandler,

@@ -2,7 +2,7 @@
 #
 # Sub2API Installation Script
 # Sub2API 安装脚本
-# Usage: curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh | bash
+# Usage: curl -sSL https://raw.githubusercontent.com/YeTianXingShi/sub2api/develop/deploy/install.sh | bash
 #
 
 set -e
@@ -31,7 +31,7 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Configuration
-GITHUB_REPO="Wei-Shaw/sub2api"
+GITHUB_REPO="YeTianXingShi/sub2api"
 INSTALL_DIR="/opt/sub2api"
 SERVICE_NAME="sub2api"
 SERVICE_USER="sub2api"
@@ -531,7 +531,7 @@ github_api_curl() {
 # Get latest release version
 get_latest_version() {
     print_info "$(msg 'fetching_version')"
-    LATEST_VERSION=$(github_api_curl -s --connect-timeout 10 --max-time 30 "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" 2>/dev/null | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
+    LATEST_VERSION=$(github_api_curl -s --connect-timeout 10 --max-time 30 "https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=30" 2>/dev/null | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/' | grep -E '^v-custom\.[0-9]{8}\.[1-9][0-9]*$' | head -1 || true)
 
     if [ -z "$LATEST_VERSION" ]; then
         print_error "$(msg 'failed_get_version')"
@@ -547,7 +547,7 @@ list_versions() {
     print_info "$(msg 'fetching_versions')"
 
     local versions
-    versions=$(github_api_curl -s --connect-timeout 10 --max-time 30 "https://api.github.com/repos/${GITHUB_REPO}/releases" 2>/dev/null | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/' | head -20)
+    versions=$(github_api_curl -s --connect-timeout 10 --max-time 30 "https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=30" 2>/dev/null | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/' | grep -E '^v-custom\.[0-9]{8}\.[1-9][0-9]*$' | head -20 || true)
 
     if [ -z "$versions" ]; then
         print_error "$(msg 'failed_get_version')"
@@ -575,9 +575,13 @@ validate_version() {
         exit 1
     fi
 
-    # Ensure version starts with 'v'
-    if [[ ! "$version" =~ ^v ]]; then
-        version="v$version"
+    if [[ "$version" =~ ^custom\. ]]; then
+        version="v-$version"
+    fi
+
+    if [[ ! "$version" =~ ^v-custom\.[0-9]{8}\.[1-9][0-9]*$ ]]; then
+        print_error "$(msg 'version_not_found'): $version" >&2
+        exit 1
     fi
 
     print_info "$(msg 'validating_version') $version" >&2
@@ -607,7 +611,7 @@ validate_version() {
 get_current_version() {
     if [ -f "$INSTALL_DIR/sub2api" ]; then
         # Use grep -E for better compatibility (works on macOS and Linux)
-        "$INSTALL_DIR/sub2api" --version 2>/dev/null | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "unknown"
+        "$INSTALL_DIR/sub2api" --version 2>/dev/null | grep -oE 'v?-?custom\.[0-9]{8}\.[0-9]+' | head -1 || echo "unknown"
     else
         echo "not_installed"
     fi
@@ -615,7 +619,7 @@ get_current_version() {
 
 # Download and extract
 download_and_extract() {
-    local version_num=${LATEST_VERSION#v}
+    local version_num=${LATEST_VERSION#v-}
     local archive_name="sub2api_${version_num}_${OS}_${ARCH}.tar.gz"
     local download_url="https://github.com/${GITHUB_REPO}/releases/download/${LATEST_VERSION}/${archive_name}"
     local checksum_url="https://github.com/${GITHUB_REPO}/releases/download/${LATEST_VERSION}/checksums.txt"
@@ -718,7 +722,7 @@ install_service() {
     cat > /etc/systemd/system/sub2api.service << EOF
 [Unit]
 Description=Sub2API - AI API Gateway Platform
-Documentation=https://github.com/Wei-Shaw/sub2api
+Documentation=https://github.com/YeTianXingShi/sub2api
 After=network.target postgresql.service redis.service
 Wants=postgresql.service redis.service
 
@@ -863,7 +867,7 @@ upgrade() {
     print_info "$(msg 'upgrading')"
 
     # Get current version
-    CURRENT_VERSION=$("$INSTALL_DIR/sub2api" --version 2>/dev/null | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown")
+    CURRENT_VERSION=$("$INSTALL_DIR/sub2api" --version 2>/dev/null | grep -oE 'v?-?custom\.[0-9]{8}\.[0-9]+' || echo "unknown")
     print_info "$(msg 'current_version'): $CURRENT_VERSION"
 
     # Stop service
@@ -1181,10 +1185,10 @@ main() {
             echo ""
             echo "Examples:"
             echo "  $0                        # Install latest version"
-            echo "  $0 install -v v0.1.0      # Install specific version"
+            echo "  $0 install -v v-custom.20260726.1 # Install specific version"
             echo "  $0 upgrade                # Upgrade to latest"
-            echo "  $0 upgrade -v v0.2.0      # Upgrade to specific version"
-            echo "  $0 rollback v0.1.0        # Rollback to v0.1.0"
+            echo "  $0 upgrade -v v-custom.20260726.1 # Upgrade to specific version"
+            echo "  $0 rollback v-custom.20260726.1   # Roll back to a custom release"
             echo "  $0 list-versions          # List available versions"
             echo ""
             exit 0

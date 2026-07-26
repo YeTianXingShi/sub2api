@@ -285,6 +285,8 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 		return nil, fmt.Errorf("marshal table page size options: %w", err)
 	}
 	updates[SettingKeyTablePageSizeOptions] = string(tablePageSizeOptionsJSON)
+	settings.UsageRankingLimit = normalizeUsageRankingLimit(strconv.Itoa(settings.UsageRankingLimit))
+	updates[SettingKeyUsageRankingLimit] = strconv.Itoa(settings.UsageRankingLimit)
 	updates[SettingKeyCustomMenuItems] = settings.CustomMenuItems
 	updates[SettingKeyCustomEndpoints] = settings.CustomEndpoints
 

@@ -205,6 +205,9 @@ export interface PublicSettings {
   site_name: string
   site_logo: string
   site_subtitle: string
+  balance_unit_name?: string
+  balance_unit_symbol?: string
+  balance_icon_svg?: string
   api_base_url: string
   contact_info: string
   doc_url: string
@@ -493,6 +496,56 @@ export interface PaginationConfig {
 // ==================== API Key & Group Types ====================
 
 export type GroupPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'grok' | 'composite'
+export type MarketplacePricingMode = 'token' | 'image' | 'unknown'
+export type MarketplacePriceStatus = 'priced' | 'unpriced'
+
+export interface MarketplacePricingInterval {
+  min_tokens: number
+  max_tokens?: number | null
+  input_price_per_token?: number
+  image_input_price_per_token?: number
+  output_price_per_token?: number
+  cache_write_price_per_token?: number
+  cache_read_price_per_token?: number
+  image_output_price_per_token?: number
+  fast_input_price_per_token?: number
+  fast_image_input_price_per_token?: number
+  fast_output_price_per_token?: number
+  fast_cache_write_price_per_token?: number
+  fast_cache_read_price_per_token?: number
+  fast_image_output_price_per_token?: number
+}
+
+export interface MarketplaceModelPricing extends MarketplacePricingInterval {
+  pricing_mode: MarketplacePricingMode
+  price_status: MarketplacePriceStatus
+  context_intervals?: MarketplacePricingInterval[]
+  image_price_1k?: number
+  image_price_2k?: number
+  image_price_4k?: number
+}
+
+export interface MarketplaceModel { id: string; display_name: string; pricing: MarketplaceModelPricing }
+export interface MarketplaceGroupCapacity {
+  concurrency_used: number; concurrency_max: number; sessions_used: number; sessions_max: number; rpm_used: number; rpm_max: number
+}
+export interface MarketplaceGroup {
+  id: number
+  name: string
+  description: string
+  platform: GroupPlatform
+  display_brand: string
+  sort_order: number
+  rate_multiplier: number
+  image_rate_independent: boolean
+  image_rate_multiplier: number
+  official_price_ratio?: number
+  official_price_rmb_equivalent?: number
+  data_sharing_enabled: boolean
+  capacity?: MarketplaceGroupCapacity
+  model_count: number
+  models: MarketplaceModel[]
+}
 
 export type SubscriptionType = 'standard' | 'subscription'
 

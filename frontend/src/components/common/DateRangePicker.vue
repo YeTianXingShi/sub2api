@@ -21,7 +21,7 @@
     </button>
 
     <Transition name="date-picker-dropdown">
-      <div v-if="isOpen" class="date-picker-dropdown">
+      <div v-if="isOpen" class="date-picker-dropdown" :style="dropdownStyle">
         <!-- Quick presets -->
         <div class="date-picker-presets">
           <button
@@ -89,6 +89,7 @@ interface DatePreset {
 interface Props {
   startDate: string
   endDate: string
+  applyOnPreset?: boolean
 }
 
 interface Emits {
@@ -104,9 +105,20 @@ const { t, locale } = useI18n()
 
 const isOpen = ref(false)
 const containerRef = ref<HTMLElement | null>(null)
+const dropdownLeft = ref(0)
+const dropdownTop = ref(0)
 const localStartDate = ref(props.startDate)
 const localEndDate = ref(props.endDate)
 const activePreset = ref<string | null>('last24Hours')
+
+const dropdownWidth = 640
+const dropdownMargin = 12
+
+const dropdownStyle = computed(() => ({
+  left: `${dropdownLeft.value}px`,
+  top: `${dropdownTop.value}px`,
+  width: `min(${dropdownWidth}px, calc(100vw - ${dropdownMargin * 2}px))`
+}))
 
 const today = computed(() => {
   // Use local timezone to avoid UTC timezone issues
@@ -249,6 +261,9 @@ const selectPreset = (preset: DatePreset) => {
   localStartDate.value = range.start
   localEndDate.value = range.end
   activePreset.value = preset.value
+  if (props.applyOnPreset) {
+    apply()
+  }
 }
 
 const onDateChange = () => {
@@ -278,6 +293,16 @@ const apply = () => {
   isOpen.value = false
 }
 
+// 根据触发按钮位置计算弹层坐标，避免靠右或窄屏时被视口裁切。
+const updateDropdownPosition = () => {
+  const trigger = containerRef.value?.getBoundingClientRect()
+  if (!trigger) return
+  const maxLeft = Math.max(dropdownMargin, window.innerWidth - dropdownWidth - dropdownMargin)
+  const preferredLeft = trigger.left
+  dropdownLeft.value = Math.min(Math.max(dropdownMargin, preferredLeft), maxLeft)
+  dropdownTop.value = trigger.bottom + 8
+}
+
 const handleClickOutside = (event: MouseEvent) => {
   if (containerRef.value && !containerRef.value.contains(event.target as Node)) {
     isOpen.value = false
@@ -287,6 +312,12 @@ const handleClickOutside = (event: MouseEvent) => {
 const handleEscape = (event: KeyboardEvent) => {
   if (event.key === 'Escape' && isOpen.value) {
     isOpen.value = false
+  }
+}
+
+const handleViewportChange = () => {
+  if (isOpen.value) {
+    updateDropdownPosition()
   }
 }
 
@@ -310,6 +341,8 @@ watch(
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
   document.addEventListener('keydown', handleEscape)
+  window.addEventListener('resize', handleViewportChange)
+  window.addEventListener('scroll', handleViewportChange, true)
   // Initialize active preset detection
   onDateChange()
 })
@@ -317,6 +350,8 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
   document.removeEventListener('keydown', handleEscape)
+  window.removeEventListener('resize', handleViewportChange)
+  window.removeEventListener('scroll', handleViewportChange, true)
 })
 </script>
 

@@ -1368,6 +1368,118 @@ type ImagePriceConfig struct {
 	Price4K *float64 // 4K 尺寸价格（nil 表示使用默认值）
 }
 
+// ModelDisplayPricing is a frontend-safe pricing snapshot after applying the
+// public group's multiplier.
+type ModelDisplayPricing struct {
+	PricingMode                 string
+	PriceStatus                 string
+	InputPricePerToken          float64
+	ImageInputPricePerToken     float64
+	OutputPricePerToken         float64
+	CacheWritePricePerToken     float64
+	CacheReadPricePerToken      float64
+	ImageOutputPricePerToken    float64
+	ImagePrice1K                float64
+	ImagePrice2K                float64
+	ImagePrice4K                float64
+	FastInputPricePerToken      float64
+	FastOutputPricePerToken     float64
+	FastCacheWritePricePerToken float64
+	FastCacheReadPricePerToken  float64
+	ContextIntervals            []ModelDisplayPricingInterval
+}
+
+type ModelDisplayPricingInterval struct {
+	MinTokens                   int
+	MaxTokens                   *int
+	InputPricePerToken          float64
+	ImageInputPricePerToken     float64
+	OutputPricePerToken         float64
+	CacheWritePricePerToken     float64
+	CacheReadPricePerToken      float64
+	ImageOutputPricePerToken    float64
+	FastInputPricePerToken      float64
+	FastOutputPricePerToken     float64
+	FastCacheWritePricePerToken float64
+	FastCacheReadPricePerToken  float64
+}
+
+func (s *BillingService) GetDisplayPricing(model string, rateMultiplier float64, groupConfig *ImagePriceConfig) ModelDisplayPricing {
+	if rateMultiplier < 0 {
+		rateMultiplier = 0
+	}
+	raw := s.getRawModelPricing(model)
+	if (raw != nil && raw.OutputCostPerImage > 0) || looksLikeImageModel(model) {
+		return ModelDisplayPricing{PricingMode: "image", PriceStatus: "priced",
+			ImagePrice1K: s.getImageUnitPrice(model, "1K", groupConfig) * rateMultiplier,
+			ImagePrice2K: s.getImageUnitPrice(model, "2K", groupConfig) * rateMultiplier,
+			ImagePrice4K: s.getImageUnitPrice(model, "4K", groupConfig) * rateMultiplier}
+	}
+	pricing, err := s.GetModelPricing(model)
+	if err != nil || pricing == nil || !hasAnyDisplayTokenPricing(pricing) {
+		return ModelDisplayPricing{PricingMode: "unknown", PriceStatus: "unpriced"}
+	}
+	display := ModelDisplayPricing{PricingMode: "token", PriceStatus: "priced",
+		InputPricePerToken:          pricing.InputPricePerToken * rateMultiplier,
+		ImageInputPricePerToken:     pricing.ImageInputPricePerToken * rateMultiplier,
+		OutputPricePerToken:         pricing.OutputPricePerToken * rateMultiplier,
+		CacheWritePricePerToken:     pricing.CacheCreationPricePerToken * rateMultiplier,
+		CacheReadPricePerToken:      pricing.CacheReadPricePerToken * rateMultiplier,
+		ImageOutputPricePerToken:    pricing.ImageOutputPricePerToken * rateMultiplier,
+		FastInputPricePerToken:      pricing.InputPricePerTokenPriority * rateMultiplier,
+		FastOutputPricePerToken:     pricing.OutputPricePerTokenPriority * rateMultiplier,
+		FastCacheWritePricePerToken: pricing.CacheCreationPricePerTokenPriority * rateMultiplier,
+		FastCacheReadPricePerToken:  pricing.CacheReadPricePerTokenPriority * rateMultiplier,
+	}
+	if pricing.LongContextInputThreshold > 0 &&
+		(pricing.LongContextInputMultiplier > 1 || pricing.LongContextOutputMultiplier > 1) {
+		threshold := pricing.LongContextInputThreshold
+		base := modelDisplayPricingInterval(pricing, rateMultiplier, 1, 1)
+		base.MaxTokens = &threshold
+		long := modelDisplayPricingInterval(pricing, rateMultiplier, pricing.LongContextInputMultiplier, pricing.LongContextOutputMultiplier)
+		long.MinTokens = threshold
+		display.ContextIntervals = []ModelDisplayPricingInterval{base, long}
+	}
+	return display
+}
+
+func modelDisplayPricingInterval(pricing *ModelPricing, rateMultiplier, inputMultiplier, outputMultiplier float64) ModelDisplayPricingInterval {
+	if inputMultiplier <= 0 {
+		inputMultiplier = 1
+	}
+	if outputMultiplier <= 0 {
+		outputMultiplier = 1
+	}
+	return ModelDisplayPricingInterval{
+		InputPricePerToken:          pricing.InputPricePerToken * rateMultiplier * inputMultiplier,
+		ImageInputPricePerToken:     pricing.ImageInputPricePerToken * rateMultiplier * inputMultiplier,
+		OutputPricePerToken:         pricing.OutputPricePerToken * rateMultiplier * outputMultiplier,
+		CacheWritePricePerToken:     pricing.CacheCreationPricePerToken * rateMultiplier * inputMultiplier,
+		CacheReadPricePerToken:      pricing.CacheReadPricePerToken * rateMultiplier * inputMultiplier,
+		ImageOutputPricePerToken:    pricing.ImageOutputPricePerToken * rateMultiplier * outputMultiplier,
+		FastInputPricePerToken:      pricing.InputPricePerTokenPriority * rateMultiplier * inputMultiplier,
+		FastOutputPricePerToken:     pricing.OutputPricePerTokenPriority * rateMultiplier * outputMultiplier,
+		FastCacheWritePricePerToken: pricing.CacheCreationPricePerTokenPriority * rateMultiplier * inputMultiplier,
+		FastCacheReadPricePerToken:  pricing.CacheReadPricePerTokenPriority * rateMultiplier * inputMultiplier,
+	}
+}
+
+func (s *BillingService) getRawModelPricing(model string) *LiteLLMModelPricing {
+	if s == nil || s.pricingService == nil {
+		return nil
+	}
+	return s.pricingService.GetModelPricing(model)
+}
+
+func hasAnyDisplayTokenPricing(p *ModelPricing) bool {
+	return p != nil && (p.InputPricePerToken > 0 || p.ImageInputPricePerToken > 0 || p.OutputPricePerToken > 0 || p.CacheCreationPricePerToken > 0 || p.CacheReadPricePerToken > 0 || p.ImageOutputPricePerToken > 0)
+}
+
+func looksLikeImageModel(model string) bool {
+	model = strings.ToLower(strings.TrimSpace(model))
+	return strings.Contains(model, "-image") || strings.Contains(model, "image-") || strings.Contains(model, "/image") || strings.HasPrefix(model, "imagen-") || strings.Contains(model, "gpt-image") || strings.Contains(model, "dall-e")
+}
+
 // VideoPriceConfig 视频生成计费配置。所有价格均为**每秒**单价（USD/s），与 xAI 官方计费口径一致。
 type VideoPriceConfig struct {
 	Price480P  *float64 // 480p 每秒价格（nil 表示使用默认值）

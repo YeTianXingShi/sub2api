@@ -5461,7 +5461,7 @@
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   {{ t("admin.settings.site.tablePreferencesDescription") }}
                 </p>
-                <div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-3">
                   <div>
                     <label
                       class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
@@ -5496,6 +5496,24 @@
                     />
                     <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
                       {{ t("admin.settings.site.tablePageSizeOptionsHint") }}
+                    </p>
+                  </div>
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {{ t("admin.settings.site.usageRankingLimit") }}
+                    </label>
+                    <input
+                      v-model.number="form.usage_ranking_limit"
+                      type="number"
+                      min="1"
+                      max="100"
+                      step="1"
+                      class="input w-40"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.site.usageRankingLimitHint") }}
                     </p>
                   </div>
                 </div>
@@ -7816,14 +7834,14 @@ function localText(zh: string, en: string): string {
 
 const paymentGuideHref = computed(() =>
   locale.value.startsWith("zh")
-    ? "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT_CN.md"
-    : "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT.md",
+    ? "https://github.com/YeTianXingShi/sub2api/blob/develop/docs/PAYMENT_CN.md"
+    : "https://github.com/YeTianXingShi/sub2api/blob/develop/docs/PAYMENT.md",
 );
 
 const paymentMethodsHref = computed(() =>
   locale.value.startsWith("zh")
-    ? "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT_CN.md#支持的支付方式"
-    : "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT.md#supported-payment-methods",
+    ? "https://github.com/YeTianXingShi/sub2api/blob/develop/docs/PAYMENT_CN.md#支持的支付方式"
+    : "https://github.com/YeTianXingShi/sub2api/blob/develop/docs/PAYMENT.md#supported-payment-methods",
 );
 
 type SettingsTab =
@@ -7912,6 +7930,8 @@ const registrationEmailSuffixWhitelistTags = ref<string[]>([]);
 const registrationEmailSuffixWhitelistDraft = ref("");
 const forwardedClientIpHeaderDraft = ref("");
 const tablePageSizeOptionsInput = ref("10, 20, 50, 100");
+const usageRankingLimitMin = 1;
+const usageRankingLimitMax = 100;
 
 // Admin API Key 状态
 const adminApiKeyLoading = ref(true);
@@ -8531,6 +8551,7 @@ const form = reactive<SettingsForm>({
   payment_alipay_mobile_precreate_deep_link: false,
   table_default_page_size: tablePageSizeDefault,
   table_page_size_options: [10, 20, 50, 100],
+  usage_ranking_limit: 20,
   custom_menu_items: [] as Array<{
     id: string;
     label: string;
@@ -9864,6 +9885,12 @@ async function saveSettings() {
 
     form.table_default_page_size = normalizedTableDefaultPageSize;
     form.table_page_size_options = normalizedTablePageSizeOptions;
+    const normalizedUsageRankingLimit = Math.floor(Number(form.usage_ranking_limit));
+    if (!Number.isInteger(normalizedUsageRankingLimit) || normalizedUsageRankingLimit < usageRankingLimitMin || normalizedUsageRankingLimit > usageRankingLimitMax) {
+      appStore.showError(t("admin.settings.site.usageRankingLimitRangeError", { min: usageRankingLimitMin, max: usageRankingLimitMax }));
+      return;
+    }
+    form.usage_ranking_limit = normalizedUsageRankingLimit;
 
     const normalizedLoginAgreementDocuments =
       normalizeLoginAgreementDocumentsForSave();
@@ -10024,6 +10051,7 @@ async function saveSettings() {
       hide_ccs_import_button: form.hide_ccs_import_button,
       table_default_page_size: form.table_default_page_size,
       table_page_size_options: form.table_page_size_options,
+      usage_ranking_limit: form.usage_ranking_limit,
       custom_menu_items: form.custom_menu_items,
       custom_endpoints: form.custom_endpoints,
       frontend_url: form.frontend_url,

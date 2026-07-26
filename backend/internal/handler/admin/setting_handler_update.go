@@ -144,6 +144,7 @@ type UpdateSettingsRequest struct {
 	PurchaseSubscriptionURL     *string               `json:"purchase_subscription_url"`
 	TableDefaultPageSize        int                   `json:"table_default_page_size"`
 	TablePageSizeOptions        []int                 `json:"table_page_size_options"`
+	UsageRankingLimit           int                   `json:"usage_ranking_limit"`
 	CustomMenuItems             *[]dto.CustomMenuItem `json:"custom_menu_items"`
 	CustomEndpoints             *[]dto.CustomEndpoint `json:"custom_endpoints"`
 
@@ -479,6 +480,13 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	}
 	if req.TablePageSizeOptions == nil {
 		req.TablePageSizeOptions = previousSettings.TablePageSizeOptions
+	}
+	if req.UsageRankingLimit == 0 {
+		req.UsageRankingLimit = previousSettings.UsageRankingLimit
+	}
+	if req.UsageRankingLimit < service.MinUsageRankingLimit || req.UsageRankingLimit > service.MaxUsageRankingLimit {
+		response.BadRequest(c, "usage_ranking_limit must be between 1 and 100")
+		return
 	}
 	req.SMTPHost = strings.TrimSpace(req.SMTPHost)
 	req.SMTPUsername = strings.TrimSpace(req.SMTPUsername)
@@ -1357,6 +1365,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		PurchaseSubscriptionURL:                purchaseURL,
 		TableDefaultPageSize:                   req.TableDefaultPageSize,
 		TablePageSizeOptions:                   req.TablePageSizeOptions,
+		UsageRankingLimit:                      req.UsageRankingLimit,
 		CustomMenuItems:                        customMenuJSON,
 		CustomEndpoints:                        customEndpointsJSON,
 		DefaultConcurrency:                     req.DefaultConcurrency,
@@ -1886,6 +1895,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		PurchaseSubscriptionURL:                                updatedSettings.PurchaseSubscriptionURL,
 		TableDefaultPageSize:                                   updatedSettings.TableDefaultPageSize,
 		TablePageSizeOptions:                                   updatedSettings.TablePageSizeOptions,
+		UsageRankingLimit:                                      updatedSettings.UsageRankingLimit,
 		CustomMenuItems:                                        dto.ParseCustomMenuItems(updatedSettings.CustomMenuItems),
 		CustomEndpoints:                                        dto.ParseCustomEndpoints(updatedSettings.CustomEndpoints),
 		DefaultConcurrency:                                     updatedSettings.DefaultConcurrency,

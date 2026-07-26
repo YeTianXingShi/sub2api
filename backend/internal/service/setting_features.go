@@ -274,6 +274,24 @@ func (s *SettingService) GetDefaultUserRPMLimit(ctx context.Context) int {
 	return 0
 }
 
+// GetUsageRankingLimit returns a bounded value and remains compatible with
+// installations created before the setting existed.
+func (s *SettingService) GetUsageRankingLimit(ctx context.Context) int {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyUsageRankingLimit)
+	if err != nil {
+		return DefaultUsageRankingLimit
+	}
+	return normalizeUsageRankingLimit(value)
+}
+
+func normalizeUsageRankingLimit(value string) int {
+	limit, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || limit < MinUsageRankingLimit || limit > MaxUsageRankingLimit {
+		return DefaultUsageRankingLimit
+	}
+	return limit
+}
+
 // GetDefaultSubscriptions 获取新用户默认订阅配置列表。
 func (s *SettingService) GetDefaultSubscriptions(ctx context.Context) []DefaultSubscriptionSetting {
 	value, err := s.settingRepo.GetValue(ctx, SettingKeyDefaultSubscriptions)

@@ -482,6 +482,9 @@ export default {
         tablePageSizeOptionsHint: 'Use commas to separate integers between 5 and 1000; values are deduplicated and sorted on save',
         tableDefaultPageSizeRangeError: 'Default rows per page must be between {min} and {max}',
         tablePageSizeOptionsFormatError: 'Invalid options format. Enter comma-separated integers between {min} and {max}',
+        usageRankingLimit: 'Spending Ranking Size',
+        usageRankingLimitHint: 'Number of users shown in the spending ranking (1-100)',
+        usageRankingLimitRangeError: 'Ranking size must be between {min} and {max}',
         customEndpoints: {
           title: 'Custom Endpoints',
           description: 'Add additional API endpoint URLs for users to quickly copy on the API Keys page',

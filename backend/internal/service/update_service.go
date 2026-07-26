@@ -2,6 +2,7 @@ package service
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"bufio"
 	"compress/gzip"
 	"context"
@@ -30,7 +31,7 @@ var (
 const (
 	updateCacheKey = "update_check_cache"
 	updateCacheTTL = 1200 // 20 minutes
-	githubRepo     = "Wei-Shaw/sub2api"
+	githubRepo     = "YeTianXingShi/sub2api"
 
 	// Security: allowed download domains for updates
 	allowedDownloadHost = "github.com"
@@ -315,7 +316,7 @@ func (s *UpdateService) ListRollbackVersions(ctx context.Context) ([]RollbackVer
 	versions := make([]RollbackVersion, 0, len(releases))
 	for _, r := range releases {
 		versions = append(versions, RollbackVersion{
-			Version:     strings.TrimPrefix(r.TagName, "v"),
+			Version:     normalizeReleaseVersion(r.TagName),
 			PublishedAt: r.PublishedAt,
 			HTMLURL:     r.HTMLURL,
 		})
@@ -327,7 +328,7 @@ func (s *UpdateService) ListRollbackVersions(ctx context.Context) ([]RollbackVer
 // The target must be one of the versions returned by ListRollbackVersions;
 // anything else (including the current version) is rejected.
 func (s *UpdateService) RollbackToVersion(ctx context.Context, version string) error {
-	target := strings.TrimPrefix(strings.TrimSpace(version), "v")
+	target := normalizeReleaseVersion(version)
 	if target == "" {
 		return ErrRollbackVersionNotAllowed
 	}
@@ -339,7 +340,7 @@ func (s *UpdateService) RollbackToVersion(ctx context.Context, version string) e
 
 	var match *GitHubRelease
 	for _, r := range releases {
-		if strings.TrimPrefix(r.TagName, "v") == target {
+		if normalizeReleaseVersion(r.TagName) == target {
 			match = r
 			break
 		}
@@ -374,7 +375,10 @@ func (s *UpdateService) fetchRollbackCandidates(ctx context.Context) ([]*GitHubR
 		if r == nil || r.Draft || r.Prerelease {
 			continue
 		}
-		v := strings.TrimPrefix(r.TagName, "v")
+		v := normalizeReleaseVersion(r.TagName)
+		if _, _, ok := parseCustomVersion(v); !ok {
+			continue
+		}
 		if v == "" || seen[v] {
 			continue
 		}
@@ -388,8 +392,8 @@ func (s *UpdateService) fetchRollbackCandidates(ctx context.Context) ([]*GitHubR
 
 	sort.SliceStable(candidates, func(i, j int) bool {
 		return compareVersions(
-			strings.TrimPrefix(candidates[i].TagName, "v"),
-			strings.TrimPrefix(candidates[j].TagName, "v"),
+			normalizeReleaseVersion(candidates[i].TagName),
+			normalizeReleaseVersion(candidates[j].TagName),
 		) > 0
 	})
 
@@ -400,12 +404,24 @@ func (s *UpdateService) fetchRollbackCandidates(ctx context.Context) ([]*GitHubR
 }
 
 func (s *UpdateService) fetchLatestRelease(ctx context.Context) (*UpdateInfo, error) {
-	release, err := s.githubClient.FetchLatestRelease(ctx, githubRepo)
+	releases, err := s.githubClient.FetchRecentReleases(ctx, githubRepo, rollbackFetchPageSize)
 	if err != nil {
 		return nil, err
 	}
-
-	latestVersion := strings.TrimPrefix(release.TagName, "v")
+	var release *GitHubRelease
+	for _, candidate := range releases {
+		if candidate == nil || candidate.Draft || candidate.Prerelease {
+			continue
+		}
+		if _, _, ok := parseCustomVersion(candidate.TagName); ok {
+			release = candidate
+			break
+		}
+	}
+	if release == nil {
+		return nil, fmt.Errorf("no v-custom release found")
+	}
+	latestVersion := normalizeReleaseVersion(release.TagName)
 
 	assets := make([]Asset, len(release.Assets))
 	for i, a := range release.Assets {
@@ -506,6 +522,9 @@ func (s *UpdateService) verifyChecksum(ctx context.Context, filePath, checksumUR
 }
 
 func (s *UpdateService) extractBinary(archivePath, destPath string) error {
+	if strings.HasSuffix(strings.ToLower(archivePath), ".zip") {
+		return extractBinaryFromZip(archivePath, destPath)
+	}
 	f, err := os.Open(archivePath)
 	if err != nil {
 		return err
@@ -593,6 +612,47 @@ func (s *UpdateService) extractBinary(archivePath, destPath string) error {
 	return out.Close()
 }
 
+func extractBinaryFromZip(archivePath, destPath string) error {
+	zr, err := zip.OpenReader(archivePath)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = zr.Close() }()
+
+	const maxBinarySize = 500 * 1024 * 1024
+	for _, entry := range zr.File {
+		if strings.Contains(entry.Name, "..") || filepath.Base(entry.Name) != "sub2api.exe" {
+			continue
+		}
+		if entry.FileInfo().IsDir() || entry.UncompressedSize64 > maxBinarySize {
+			continue
+		}
+		in, err := entry.Open()
+		if err != nil {
+			return err
+		}
+		out, err := os.Create(destPath)
+		if err != nil {
+			_ = in.Close()
+			return err
+		}
+		_, copyErr := io.Copy(out, io.LimitReader(in, maxBinarySize))
+		closeInErr := in.Close()
+		closeOutErr := out.Close()
+		if copyErr != nil {
+			return copyErr
+		}
+		if closeInErr != nil {
+			return closeInErr
+		}
+		if closeOutErr != nil {
+			return closeOutErr
+		}
+		return nil
+	}
+	return fmt.Errorf("binary not found in archive")
+}
+
 func (s *UpdateService) getFromCache(ctx context.Context) (*UpdateInfo, error) {
 	data, err := s.cache.GetUpdateInfo(ctx)
 	if err != nil {
@@ -639,6 +699,29 @@ func (s *UpdateService) saveToCache(ctx context.Context, info *UpdateInfo) {
 
 // compareVersions compares two semantic versions
 func compareVersions(current, latest string) int {
+	currentDate, currentSeq, currentCustom := parseCustomVersion(current)
+	latestDate, latestSeq, latestCustom := parseCustomVersion(latest)
+	if currentCustom && latestCustom {
+		if currentDate < latestDate {
+			return -1
+		}
+		if currentDate > latestDate {
+			return 1
+		}
+		if currentSeq < latestSeq {
+			return -1
+		}
+		if currentSeq > latestSeq {
+			return 1
+		}
+		return 0
+	}
+	if currentCustom != latestCustom {
+		if currentCustom {
+			return 1
+		}
+		return -1
+	}
 	currentParts := parseVersion(current)
 	latestParts := parseVersion(latest)
 
@@ -651,6 +734,25 @@ func compareVersions(current, latest string) int {
 		}
 	}
 	return 0
+}
+
+func parseCustomVersion(v string) (int, int, bool) {
+	v = normalizeReleaseVersion(v)
+	parts := strings.Split(v, ".")
+	if len(parts) != 3 || parts[0] != "custom" || len(parts[1]) != 8 {
+		return 0, 0, false
+	}
+	date, errDate := strconv.Atoi(parts[1])
+	seq, errSeq := strconv.Atoi(parts[2])
+	_, errCalendar := time.Parse("20060102", parts[1])
+	if errDate != nil || errCalendar != nil || errSeq != nil || seq < 1 {
+		return 0, 0, false
+	}
+	return date, seq, true
+}
+
+func normalizeReleaseVersion(v string) string {
+	return strings.TrimPrefix(strings.TrimSpace(v), "v-")
 }
 
 func parseVersion(v string) [3]int {

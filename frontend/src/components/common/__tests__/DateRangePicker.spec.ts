@@ -33,6 +33,8 @@ const formatLocalDate = (date: Date): string => {
   return `${year}-${month}-${day}`
 }
 
+const waitForTransition = () => new Promise((resolve) => window.setTimeout(resolve, 250))
+
 describe('DateRangePicker', () => {
   it('uses last 24 hours as the default recognized preset', () => {
     const now = new Date()
@@ -92,5 +94,37 @@ describe('DateRangePicker', () => {
         preset: 'last24Hours'
       }
     ])
+  })
+
+  it('can apply a preset immediately when applyOnPreset is enabled', async () => {
+    const now = new Date()
+    const today = formatLocalDate(now)
+
+    const wrapper = mount(DateRangePicker, {
+      props: {
+        startDate: today,
+        endDate: today,
+        applyOnPreset: true
+      },
+      global: {
+        stubs: {
+          Icon: true
+        }
+      }
+    })
+
+    await wrapper.find('.date-picker-trigger').trigger('click')
+    const presetButton = wrapper.findAll('.date-picker-preset').find((node) =>
+      node.text().includes('Last Month')
+    )
+    expect(presetButton).toBeDefined()
+
+    await presetButton!.trigger('click')
+
+    expect(wrapper.emitted('change')?.[0]?.[0]).toMatchObject({
+      preset: 'lastMonth'
+    })
+    await waitForTransition()
+    expect(wrapper.find('.date-picker-dropdown').exists()).toBe(false)
   })
 })

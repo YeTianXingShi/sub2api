@@ -40,6 +40,16 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/models',
+    name: 'ModelMarketplace',
+    component: () => import('@/views/ModelMarketplaceView.vue'),
+    meta: {
+      requiresAuth: false,
+      title: 'Model Marketplace',
+      titleKey: 'marketplace.title'
+    }
+  },
+  {
     path: '/login',
     name: 'Login',
     component: () => import('@/views/auth/LoginView.vue'),
@@ -228,6 +238,18 @@ const routes: RouteRecordRaw[] = [
       title: 'Usage Records',
       titleKey: 'usage.title',
       descriptionKey: 'usage.description'
+    }
+  },
+  {
+    path: '/usage-ranking',
+    name: 'UsageRanking',
+    component: () => import('@/views/user/UsageRankingView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Usage Ranking',
+      titleKey: 'usageRanking.title',
+      descriptionKey: 'usageRanking.description'
     }
   },
   {

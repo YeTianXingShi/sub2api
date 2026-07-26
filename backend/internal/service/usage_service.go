@@ -268,6 +268,15 @@ func (s *UsageService) GetStatsByModel(ctx context.Context, modelName string, st
 	}, nil
 }
 
+// GetUsageRanking returns the public spending leaderboard for a time range.
+func (s *UsageService) GetUsageRanking(ctx context.Context, startTime, endTime time.Time, limit int) (*usagestats.UsageRankingResponse, error) {
+	ranking, err := s.usageRepo.GetUsageRanking(ctx, startTime, endTime, limit)
+	if err != nil {
+		return nil, fmt.Errorf("get usage ranking: %w", err)
+	}
+	return ranking, nil
+}
+
 // GetDailyStats 获取每日使用统计（最近N天）
 func (s *UsageService) GetDailyStats(ctx context.Context, userID int64, days int) ([]map[string]any, error) {
 	endTime := time.Now()
